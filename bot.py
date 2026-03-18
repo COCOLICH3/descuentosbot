@@ -18,24 +18,24 @@ DIAS_ES = {
 logging.basicConfig(level=logging.INFO)
 
 def get_descuentos():
-    import json
     scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly",
               "https://www.googleapis.com/auth/drive.readonly"]
     
-    google_creds = os.getenv("GOOGLE_CREDENTIALS")
-    if google_creds:
-        # Limpiar comillas extras que Railway puede agregar
-        google_creds = google_creds.strip().strip('"').strip("'")
-        creds_dict = json.loads(google_creds)
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-    else:
-        creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+    creds_info = {
+        "type": "service_account",
+        "project_id": os.getenv("GOOGLE_PROJECT_ID"),
+        "private_key_id": os.getenv("GOOGLE_PRIVATE_KEY_ID"),
+        "private_key": os.getenv("GOOGLE_PRIVATE_KEY").replace("\\n", "\n"),
+        "client_email": os.getenv("GOOGLE_CLIENT_EMAIL"),
+        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+    }
     
+    creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
     client = gspread.authorize(creds)
     sheet = client.open("descuentosbot").sheet1
-    datos = sheet.get_all_records()
-    print("Datos leídos:", datos)
-    return datos
+    return sheet.get_all_records()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto = (

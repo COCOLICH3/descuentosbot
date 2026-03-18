@@ -18,12 +18,22 @@ DIAS_ES = {
 logging.basicConfig(level=logging.INFO)
 
 def get_descuentos():
+    import json
     scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly",
               "https://www.googleapis.com/auth/drive.readonly"]
-    creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+    
+    google_creds = os.getenv("GOOGLE_CREDENTIALS")
+    if google_creds:
+        creds_dict = json.loads(google_creds)
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    else:
+        creds = Credentials.from_service_account_file("credentials.json", scopes=scopes)
+    
     client = gspread.authorize(creds)
     sheet = client.open("descuentosbot").sheet1
-    return sheet.get_all_records()
+    datos = sheet.get_all_records()
+    print("Datos leídos:", datos)
+    return datos
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     texto = (

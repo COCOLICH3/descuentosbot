@@ -24,6 +24,8 @@ def get_descuentos():
     
     google_creds = os.getenv("GOOGLE_CREDENTIALS")
     if google_creds:
+        # Limpiar comillas extras que Railway puede agregar
+        google_creds = google_creds.strip().strip('"').strip("'")
         creds_dict = json.loads(google_creds)
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
     else:

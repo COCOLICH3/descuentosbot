@@ -9,7 +9,6 @@ from datetime import datetime
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
-print("TOKEN value:", TOKEN)
 
 DIAS_ES = {
     "Monday": "Lunes", "Tuesday": "Martes", "Wednesday": "Miercoles",
@@ -19,9 +18,6 @@ DIAS_ES = {
 logging.basicConfig(level=logging.INFO)
 
 def get_descuentos():
-    print("PROJECT_ID:", os.getenv("GOOGLE_PROJECT_ID"))
-    print("CLIENT_EMAIL:", os.getenv("GOOGLE_CLIENT_EMAIL"))
-    print("PRIVATE_KEY exists:", os.getenv("GOOGLE_PRIVATE_KEY") is not None)
 
     scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly",
               "https://www.googleapis.com/auth/drive.readonly"]

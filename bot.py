@@ -18,6 +18,10 @@ DIAS_ES = {
 logging.basicConfig(level=logging.INFO)
 
 def get_descuentos():
+    print("PROJECT_ID:", os.getenv("GOOGLE_PROJECT_ID"))
+    print("CLIENT_EMAIL:", os.getenv("GOOGLE_CLIENT_EMAIL"))
+    print("PRIVATE_KEY exists:", os.getenv("GOOGLE_PRIVATE_KEY") is not None)
+    
     scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly",
               "https://www.googleapis.com/auth/drive.readonly"]
     
@@ -25,7 +29,7 @@ def get_descuentos():
         "type": "service_account",
         "project_id": os.getenv("GOOGLE_PROJECT_ID"),
         "private_key_id": os.getenv("GOOGLE_PRIVATE_KEY_ID"),
-        "private_key": os.getenv("GOOGLE_PRIVATE_KEY").replace("\\n", "\n"),
+        "private_key": os.getenv("GOOGLE_PRIVATE_KEY"),
         "client_email": os.getenv("GOOGLE_CLIENT_EMAIL"),
         "client_id": os.getenv("GOOGLE_CLIENT_ID"),
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls C:\\\\Users\\\\jgonzalezc\\\\descuentobot/*.py C:\\\\Users\\\\jgonzalezc\\\\descuentobot/requirements.txt)",
+      "Bash(python:*)",
+      "Bash(venv/Scripts/python -c ':*)",
+      "Bash(venv/Scripts/python -c \"import sys; print\\(sys.executable\\)\")",
+      "Bash(venv/Scripts/pip list:*)",
+      "WebSearch",
+      "Bash(venv/Scripts/pip install:*)"
+    ]
+  }
+}

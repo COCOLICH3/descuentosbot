@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DescuentoBot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #08080f; color: #cbd5e1; min-height: 100vh; }
+
+    .sidebar { position:fixed; top:0; left:0; width:216px; height:100vh; background:#0d0d18; border-right:1px solid rgba(255,255,255,.06); overflow-y:auto; display:flex; flex-direction:column; padding:1.5rem 1rem; z-index:10; }
+    .main { margin-left:216px; padding:1.5rem 2rem; min-height:100vh; }
+
+    .filter-label { font-size:.6rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.1em; margin-bottom:.6rem; }
+    .filter-section { margin-bottom:1.5rem; }
+
+    .sf-btn { display:block; width:100%; text-align:left; padding:.4rem .7rem; border-radius:.5rem; font-size:.8rem; font-weight:500; cursor:pointer; transition:all .12s; background:transparent; color:#64748b; border:none; }
+    .sf-btn:hover { background:rgba(255,255,255,.06); color:#cbd5e1; }
+    .sf-btn.active { background:#1e1b4b; color:#a5b4fc; font-weight:600; }
+
+    .strip { display:flex; align-items:center; gap:1.5rem; padding:1.1rem 1.4rem; background:#0e0e1c; border-radius:1rem; border:1px solid rgba(255,255,255,.05); border-left-width:4px; cursor:pointer; transition:all .15s; animation:stripIn .14s ease-out; }
+    .strip:hover { background:#13132a; border-color-right: rgba(255,255,255,.1); }
+    @keyframes stripIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+
+    .pct-g { color:#4ade80; }
+    .pct-y { color:#facc15; }
+    .pct-b { color:#60a5fa; }
+    .pct-n { color:#475569; }
+
+    .border-g { border-left-color:#16a34a; }
+    .border-y { border-left-color:#ca8a04; }
+    .border-b { border-left-color:#2563eb; }
+    .border-n { border-left-color:#334155; }
+
+    /* Drawer */
+    #drawer-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(4px); z-index:50; }
+    #drawer { position:fixed; top:0; right:-440px; width:400px; height:100vh; background:#0d0d18; border-left:1px solid rgba(255,255,255,.08); overflow-y:auto; z-index:51; transition:right .22s cubic-bezier(.4,0,.2,1); padding:2rem 1.75rem; }
+    #drawer.open { right:0; }
+
+    .drawer-field { background:#13132a; border-radius:.75rem; padding:.9rem 1rem; border:1px solid rgba(255,255,255,.06); }
+    .drawer-field-label { font-size:.6rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.1em; margin-bottom:.35rem; }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div style="margin-bottom:2rem">
+      <p style="font-weight:900;font-size:1.05rem;color:#f1f5f9;letter-spacing:-.02em">DescuentoBot</p>
+      <p style="font-size:.7rem;color:#475569;margin-top:.2rem">Descuentos bancarios</p>
+    </div>
+
+    <div class="filter-section">
+      <p class="filter-label">Supermercado</p>
+      <div id="filtros-super"></div>
+    </div>
+
+    <div class="filter-section">
+      <p class="filter-label">Día</p>
+      <div id="filtros-dia"></div>
+    </div>
+
+    <div class="filter-section" id="fila-formato" style="display:none">
+      <p class="filter-label">Formato</p>
+      <div id="filtros-formato"></div>
+    </div>
+
+    <div style="margin-top:auto;padding-top:1rem">
+      <button onclick="recargar()" style="font-size:.75rem;color:#475569;padding:.5rem .75rem;border-radius:.5rem;border:1px solid rgba(255,255,255,.08);background:transparent;cursor:pointer;width:100%;transition:all .12s" onmouseover="this.style.color='#cbd5e1';this.style.borderColor='rgba(255,255,255,.15)'" onmouseout="this.style.color='#475569';this.style.borderColor='rgba(255,255,255,.08)'">↺ Actualizar datos</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.25rem">
+      <p id="contador" style="font-size:.8rem;color:#475569"></p>
+    </div>
+
+    <div id="error" style="display:none;background:#1a0a0a;border:1px solid #7f1d1d;color:#fca5a5;border-radius:.75rem;padding:.75rem 1rem;font-size:.85rem;margin-bottom:1rem"></div>
+
+    <div id="lista" style="display:flex;flex-direction:column;gap:.6rem"></div>
+
+    <div id="loading" style="display:flex;justify-content:center;padding:5rem 0">
+      <div style="width:32px;height:32px;border:2px solid #4f46e5;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite"></div>
+    </div>
+    <style>@keyframes spin { to { transform:rotate(360deg); } }</style>
+  </main>
+
+  <!-- Drawer overlay -->
+  <div id="drawer-overlay" onclick="cerrarDrawer()"></div>
+
+  <!-- Drawer -->
+  <div id="drawer">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.75rem">
+      <div style="display:flex;align-items:center;gap:1rem">
+        <span id="drawer-descuento" style="font-size:3.5rem;font-weight:900;line-height:1"></span>
+        <div>
+          <p id="drawer-banco" style="font-size:1.25rem;font-weight:700;color:#f1f5f9"></p>
+          <p id="drawer-metodo" style="color:#64748b;font-size:.85rem;margin-top:.15rem"></p>
+        </div>
+      </div>
+      <button onclick="cerrarDrawer()" style="color:#475569;font-size:1.1rem;background:none;border:none;cursor:pointer;padding:.25rem;line-height:1" onmouseover="this.style.color='#cbd5e1'" onmouseout="this.style.color='#475569'">✕</button>
+    </div>
+
+    <div id="drawer-promocion-wrap" style="display:none;margin-bottom:1.25rem">
+      <p class="drawer-field-label">Descripción</p>
+      <p id="drawer-promocion" style="color:#94a3b8;line-height:1.6;font-size:.9rem"></p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+      <div id="drawer-dia-wrap" class="drawer-field" style="display:none">
+        <p class="drawer-field-label">Día</p>
+        <p id="drawer-dia" style="color:#e2e8f0;font-weight:600;font-size:.875rem"></p>
+      </div>
+      <div id="drawer-formato-wrap" class="drawer-field" style="display:none">
+        <p class="drawer-field-label">Dónde</p>
+        <p id="drawer-formato" style="color:#e2e8f0;font-weight:600;font-size:.875rem"></p>
+      </div>
+      <div id="drawer-tope-wrap" class="drawer-field" style="display:none">
+        <p class="drawer-field-label">Tope</p>
+        <p id="drawer-tope" style="color:#e2e8f0;font-weight:600;font-size:.875rem"></p>
+      </div>
+      <div id="drawer-vigencia-wrap" class="drawer-field" style="display:none">
+        <p class="drawer-field-label">Vigencia</p>
+        <p id="drawer-vigencia" style="color:#e2e8f0;font-weight:600;font-size:.875rem"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Switcher de diseños -->
+  <div style="position:fixed;bottom:1.25rem;right:1.25rem;z-index:999;display:flex;gap:3px;background:rgba(10,10,20,.9);backdrop-filter:blur(10px);border-radius:999px;padding:4px;border:1px solid rgba(255,255,255,.1);box-shadow:0 4px 24px rgba(0,0,0,.6)">
+    <a href="/v1" id="sw-v1" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;font-size:11px;font-weight:800;text-decoration:none;color:#475569;transition:all .15s">1</a>
+    <a href="/v2" id="sw-v2" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;font-size:11px;font-weight:800;text-decoration:none;color:#475569;transition:all .15s">2</a>
+    <a href="/v3" id="sw-v3" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;font-size:11px;font-weight:800;text-decoration:none;color:#475569;transition:all .15s">3</a>
+  </div>
+
+  <script>
+    const DIAS_ORDEN = ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo'];
+    let todos = [], filtroSuper = 'todos', filtroDia = 'todos', filtroFormato = 'todos';
+
+    async function cargar() {
+      document.getElementById('loading').style.display = 'flex';
+      document.getElementById('error').style.display = 'none';
+      try {
+        const res = await fetch('/api/descuentos');
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        todos = await res.json();
+        renderFiltros(); renderStrips();
+      } catch(e) {
+        const el = document.getElementById('error');
+        el.textContent = `No se pudieron cargar los datos: ${e.message}`;
+        el.style.display = 'block';
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+      }
+    }
+
+    function recargar() {
+      todos = []; filtroSuper = 'todos'; filtroDia = 'todos'; filtroFormato = 'todos';
+      cargar();
+    }
+
+    function renderFiltros() {
+      const supersSet = new Set();
+      todos.forEach(d => { if (d.supermercado) supersSet.add(d.supermercado); });
+      renderSfBtns('filtros-super', ['todos', ...Array.from(supersSet).sort()], filtroSuper,
+        val => { filtroSuper = val; if (val !== 'Carrefour') filtroFormato = 'todos'; renderFiltros(); renderStrips(); },
+        v => v === 'todos' ? 'Todos' : v);
+
+      const base = filtroSuper === 'todos' ? todos : todos.filter(d => d.supermercado === filtroSuper);
+      const diasSet = new Set();
+      base.forEach(d => {
+        if (!d.dia || d.dia === 'Todos los dias' || d.dia === 'Sin datos') return;
+        d.dia.split('/').forEach(s => diasSet.add(s.trim()));
+      });
+      renderSfBtns('filtros-dia', ['todos', ...DIAS_ORDEN.filter(d => diasSet.has(d))], filtroDia,
+        val => { filtroDia = val; renderFiltros(); renderStrips(); },
+        v => v === 'todos' ? 'Todos' : v);
+
+      const filaFormato = document.getElementById('fila-formato');
+      if (filtroSuper === 'Carrefour') {
+        filaFormato.style.display = 'block';
+        const fmtSet = new Set();
+        todos.filter(d => d.supermercado === 'Carrefour').forEach(d => {
+          if (d.tipo_mercado) d.tipo_mercado.split('/').forEach(s => fmtSet.add(s.trim()));
+        });
+        renderSfBtns('filtros-formato', ['todos', ...Array.from(fmtSet).sort()], filtroFormato,
+          val => { filtroFormato = val; renderFiltros(); renderStrips(); },
+          v => v === 'todos' ? 'Todos' : v.replace('Carrefour ', ''));
+      } else {
+        filaFormato.style.display = 'none';
+      }
+    }
+
+    function renderSfBtns(containerId, values, active, onClick, label) {
+      const c = document.getElementById(containerId); c.innerHTML = '';
+      values.forEach(val => {
+        const btn = document.createElement('button');
+        btn.textContent = label(val);
+        btn.className = `sf-btn${val === active ? ' active' : ''}`;
+        btn.addEventListener('click', () => onClick(val));
+        c.appendChild(btn);
+      });
+    }
+
+    function filtrar() {
+      return todos.filter(d => {
+        const matchSuper = filtroSuper === 'todos' || d.supermercado === filtroSuper;
+        const dias = d.dia === 'Todos los dias' ? DIAS_ORDEN : (d.dia || '').split('/').map(s => s.trim());
+        const matchDia = filtroDia === 'todos' || dias.includes(filtroDia);
+        const fmts = (d.tipo_mercado || '').split('/').map(s => s.trim());
+        const matchFmt = filtroFormato === 'todos' || fmts.includes(filtroFormato);
+        return matchSuper && matchDia && matchFmt;
+      });
+    }
+
+    function pctClasses(descuento) {
+      const n = parseInt(descuento);
+      if (isNaN(n)) return { text:'pct-n', border:'border-n' };
+      if (n >= 30)   return { text:'pct-g', border:'border-g' };
+      if (n >= 20)   return { text:'pct-y', border:'border-y' };
+      return               { text:'pct-b', border:'border-b' };
+    }
+
+    let stripData = [];
+
+    function stripHTML(d, idx) {
+      const { text, border } = pctClasses(d.descuento);
+      const esDia = d.supermercado === 'Día' || d.supermercado === 'Dia';
+      const dias = !d.dia || d.dia === 'Sin datos' ? '' :
+                   d.dia === 'Todos los dias' ? 'Todos los días' :
+                   d.dia.replace(/\//g, ' · ');
+      const donde = esDia
+        ? (d.canal && d.canal !== 'Sin datos' ? d.canal : 'Supermercados Día')
+        : (d.tipo_mercado || '').replace(/Carrefour /g, '').replace('Carrefour', 'Hiper') || '';
+      const sub = [d.metodo_pago, dias, donde].filter(s => s && s !== 'Sin datos').join('  ·  ');
+
+      return `
+        <div class="strip ${border}" onclick="abrirDrawer(${idx})">
+          <div style="flex:1;min-width:0">
+            <p style="font-size:1.35rem;font-weight:900;color:#f1f5f9;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.banco || 'Sin datos'}</p>
+            ${sub ? `<p style="font-size:.78rem;color:#475569;margin-top:.35rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub}</p>` : ''}
+          </div>
+          <span class="text-5xl font-black leading-none ${text}" style="shrink:0">${d.descuento || '?'}</span>
+        </div>`;
+    }
+
+    function renderStrips() {
+      const filtrados = filtrar();
+      document.getElementById('contador').textContent =
+        `${filtrados.length} descuento${filtrados.length !== 1 ? 's' : ''}`;
+      stripData = filtrados;
+      document.getElementById('lista').innerHTML = filtrados.length
+        ? filtrados.map((d, i) => stripHTML(d, i)).join('')
+        : '<p style="color:#475569;text-align:center;padding:4rem 0;font-size:.9rem">Sin resultados para los filtros seleccionados</p>';
+    }
+
+    // ── Drawer ───────────────────────────────────────────────────────────────
+    function setT(id, val) { document.getElementById(id).textContent = val || ''; }
+    function showD(id, c) { document.getElementById(id).style.display = c ? 'block' : 'none'; }
+    function showDGrid(id, c) { document.getElementById(id).style.display = c ? 'block' : 'none'; }
+
+    function abrirDrawer(idx) {
+      const d = stripData[idx];
+      const { text } = pctClasses(d.descuento);
+      const descEl = document.getElementById('drawer-descuento');
+      descEl.textContent = d.descuento || '?';
+      descEl.className = text;
+      setT('drawer-banco', d.banco || 'Sin datos');
+      setT('drawer-metodo', d.metodo_pago || '');
+      const promo = d.promocion || '';
+      setT('drawer-promocion', promo); showD('drawer-promocion-wrap', !!promo);
+      const dia = d.dia && d.dia !== 'Sin datos' ? d.dia.replace(/\//g, ' / ') : '';
+      setT('drawer-dia', dia === 'Todos los dias' ? 'Todos los días' : dia);
+      showDGrid('drawer-dia-wrap', !!dia);
+      const esDiaCard = d.supermercado === 'Día' || d.supermercado === 'Dia';
+      const formato = esDiaCard
+        ? (d.canal && d.canal !== 'Sin datos' ? d.canal : 'Supermercados Día')
+        : (d.tipo_mercado && d.tipo_mercado !== 'Sin datos'
+            ? d.tipo_mercado.split('/').map(s => s.trim().replace('Carrefour ', '')).join(', ')
+            : 'Carrefour');
+      setT('drawer-formato', formato); showDGrid('drawer-formato-wrap', true);
+      const tope = d.tope && d.tope !== 'Sin tope' ? d.tope : '';
+      setT('drawer-tope', tope); showDGrid('drawer-tope-wrap', !!tope);
+      const vig = d.vigencia && d.vigencia !== 'Sin datos' ? d.vigencia : '';
+      setT('drawer-vigencia', vig); showDGrid('drawer-vigencia-wrap', !!vig);
+      document.getElementById('drawer-overlay').style.display = 'block';
+      document.getElementById('drawer').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function cerrarDrawer() {
+      document.getElementById('drawer-overlay').style.display = 'none';
+      document.getElementById('drawer').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarDrawer(); });
+    document.addEventListener('DOMContentLoaded', cargar);
+
+    (function(){
+      const cur = window.location.pathname;
+      const map = {'/v1':'sw-v1','/v2':'sw-v2','/v3':'sw-v3','/':'sw-v1'};
+      const id = map[cur]; if(id){const el=document.getElementById(id);el.style.background='#4f46e5';el.style.color='#fff';}
+    })();
+  </script>
+
+</body>
+</html>

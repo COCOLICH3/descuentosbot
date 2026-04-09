@@ -1,23 +1,17 @@
 """
 Scraper de descuentos bancarios — Carrefour Argentina
 Uso: python scraper_carrefour.py
-Escribe los resultados en la hoja 'carrefour_scrapeado' de la planilla descuentosbot.
+Escribe los resultados en descuentos.db (SQLite).
 """
 import asyncio
-import json
-import os
 import re
 from datetime import datetime
 
-import gspread
-from dotenv import load_dotenv
-from google.oauth2.service_account import Credentials
 from playwright.async_api import async_playwright
 
-load_dotenv()
+from db import save_descuentos
 
 URL = "https://www.carrefour.com.ar/descuentos-bancarios"
-SHEET_NAME = "carrefour_scrapeado"
 HEADERS = ["banco", "supermercado", "tipo_mercado", "dia", "descuento", "tope", "metodo_pago", "vigencia", "promocion"]
 
 LOGO_CLASS_TO_TIPO = {
@@ -45,53 +39,15 @@ DIAS_NORMALIZADOS = {
 }
 
 # ---------------------------------------------------------------------------
-# Google Sheets
+# Base de datos
 # ---------------------------------------------------------------------------
 
-def _build_creds():
-    """Construye credenciales desde env vars, con fallback a credentials.json."""
-    private_key = os.getenv("GOOGLE_PRIVATE_KEY", "")
-    if private_key:
-        info = {
-            "type": "service_account",
-            "project_id": os.getenv("GOOGLE_PROJECT_ID"),
-            "private_key_id": os.getenv("GOOGLE_PRIVATE_KEY_ID"),
-            "private_key": private_key.replace("\\n", "\n"),
-            "client_email": os.getenv("GOOGLE_CLIENT_EMAIL"),
-            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-        }
-    elif os.path.exists("credentials.json"):
-        with open("credentials.json") as f:
-            info = json.load(f)
-    else:
-        raise RuntimeError("No se encontraron credenciales de Google. Configurá las env vars o credentials.json.")
-
-    scopes = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    return Credentials.from_service_account_info(info, scopes=scopes)
-
-
-def save_to_sheets(rows: list[list]):
-    creds = _build_creds()
-    client = gspread.authorize(creds)
-    spreadsheet = client.open("descuentosbot")
-
-    try:
-        ws = spreadsheet.worksheet(SHEET_NAME)
-    except gspread.WorksheetNotFound:
-        ws = spreadsheet.add_worksheet(title=SHEET_NAME, rows=300, cols=len(HEADERS))
-        print(f"Hoja '{SHEET_NAME}' creada.")
-
-    ws.clear()
-    ws.append_row(HEADERS)
-    if rows:
-        ws.append_rows(rows, value_input_option="USER_ENTERED")
-
-    print(f"✅ {len(rows)} filas guardadas en '{SHEET_NAME}'.")
+def save_to_db(rows: list[list]):
+    dicts = [dict(zip(HEADERS, r)) for r in rows]
+    # Rellenar campo 'canal' que no existe en Carrefour
+    for d in dicts:
+        d.setdefault("canal", None)
+    save_descuentos(dicts, "Carrefour")
 
 
 # ---------------------------------------------------------------------------
@@ -320,7 +276,7 @@ def main():
         print("  ".join(str(c).ljust(col_w) for c in r))
 
     print()
-    save_to_sheets(rows)
+    save_to_db(rows)
 
 
 if __name__ == "__main__":

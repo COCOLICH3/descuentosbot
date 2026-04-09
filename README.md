@@ -1,18 +1,45 @@
 # DescuentoBot 🛒
 
-Bot de Telegram + web app que centraliza los descuentos bancarios en supermercados argentinos.
+Web app que centraliza los descuentos bancarios en supermercados argentinos.
 Consultá rápido qué banco usar y en qué sucursal comprar para ahorrar hoy.
 
 ## ¿Por qué existe esto?
 
 Los bancos publican sus descuentos por separado, en distintas apps y webs.
-DescuentoBot los consolida en un solo lugar de consulta rápida, tanto desde Telegram como desde el browser.
+DescuentoBot los consolida en un solo lugar de consulta rápida desde el browser.
 
 ---
 
 ## Funcionalidades
 
-### Bot de Telegram
+### Web App
+
+Interfaz visual para explorar los descuentos scrapeados. Filtrá por supermercado y día de la semana. Al hacer click en una card se abre un panel con todos los detalles.
+
+```bash
+uvicorn web:app --reload --port 8000
+# → http://localhost:8000
+```
+
+### Scrapers
+
+| Scraper | Fuente |
+|---|---|
+| `scraper_carrefour.py` | carrefour.com.ar/descuentos-bancarios |
+| `scraper_dia.py` | diaonline.supermercadosdia.com.ar/medios-de-pago-y-promociones |
+
+Cada scraper extrae banco, porcentaje, método de pago, tope, días de vigencia y formato de tienda, y guarda los resultados en `descuentos.db` (SQLite).
+
+```bash
+# Correr ambos scrapers en secuencia
+python scrape_all.py
+
+# O individualmente
+python scraper_carrefour.py
+python scraper_dia.py
+```
+
+### Bot de Telegram (opcional)
 
 | Comando | Descripción |
 |---|---|
@@ -21,35 +48,17 @@ DescuentoBot los consolida en un solo lugar de consulta rápida, tanto desde Tel
 | `/banco [nombre]` | Descuentos de un banco específico. Ej: `/banco galicia` |
 | `/super [nombre]` | Descuentos en un supermercado específico. Ej: `/super carrefour` |
 
-### Scraper de Carrefour
-
-Levanta automáticamente los descuentos bancarios publicados en carrefour.com.ar y los guarda en Google Sheets. Extrae banco, porcentaje, método de pago, tope, días de vigencia y formato de tienda (Hiper / Maxi / Market / Express / Online).
-
-```bash
-python scraper_carrefour.py
-```
-
-### Web App
-
-Interfaz visual para explorar los descuentos scrapeados. Muestra cards filtrables por día y formato de tienda. Al hacer click en una card se abre un panel con todos los detalles.
-
-```bash
-uvicorn web:app --reload --port 8000
-# → http://localhost:8000
-```
-
 ---
 
 ## Stack técnico
 
 | Capa | Tecnología |
 |---|---|
-| Bot | python-telegram-bot v22 |
 | Scraper | Playwright (Chromium headless) |
 | Web backend | FastAPI + uvicorn |
 | Web frontend | HTML + Tailwind CSS CDN + JS vanilla |
-| Base de datos | Google Sheets via gspread |
-| Hosting | Railway (worker process) |
+| Base de datos | SQLite (`descuentos.db`) |
+| Hosting | Railway |
 | Lenguaje | Python 3.12+ |
 
 ---
@@ -79,57 +88,44 @@ playwright install chromium
 Creá un archivo `.env` en la raíz:
 
 ```
-TOKEN=tu_token_de_telegram
+TOKEN=tu_token_de_telegram   # solo necesario para el bot
 ```
 
-Agregá también tu archivo `credentials.json` de Google Cloud (ver sección abajo).
-
-### 4. Corré lo que necesites
+### 4. Scrapeá los datos
 
 ```bash
-# Bot de Telegram
-python bot.py
+python scrape_all.py
+```
 
-# Scraper de Carrefour (actualiza Google Sheets)
-python scraper_carrefour.py
+Esto crea `descuentos.db` en la raíz del proyecto con todos los descuentos.
 
-# Web app (requiere haber scrapeado antes)
+### 5. Levantá la web app
+
+```bash
 uvicorn web:app --reload --port 8000
 ```
 
+Abrí `http://localhost:8000`.
+
 ---
 
-## Configuración de Google Sheets
+## Ver los datos scrapeados
 
-1. Crear un proyecto en [Google Cloud Console](https://console.cloud.google.com)
-2. Habilitar **Google Sheets API** y **Google Drive API**
-3. Crear una cuenta de servicio y descargar las credenciales como `credentials.json`
-4. Compartir la planilla `descuentosbot` con el `client_email` del archivo de credenciales
-5. La planilla principal (`sheet1`) debe tener estas columnas:
+Para inspeccionar `descuentos.db` visualmente, usá [DB Browser for SQLite](https://sqlitebrowser.org/dl/):
 
-| banco | supermercado | dia | descuento | tope | metodo_pago |
-|---|---|---|---|---|---|
-
-> ⚠️ Los días deben escribirse sin tildes: `Miercoles`, no `Miércoles`.
-
-El scraper escribe en una hoja separada llamada `carrefour_scrapeado` con columnas adicionales: `tipo_mercado`, `vigencia`, `promocion`.
+1. Instalarlo
+2. Abrir el archivo `descuentos.db` de la carpeta del proyecto
+3. Ir a la pestaña **Browse Data** → tabla `descuentos`
 
 ---
 
 ## Variables de entorno en producción (Railway)
 
-En lugar de `credentials.json`, el bot lee las credenciales de Google desde variables de entorno individuales:
-
 | Variable | Descripción |
 |---|---|
-| `TOKEN` | Token de Telegram (BotFather) |
-| `GOOGLE_PROJECT_ID` | ID del proyecto en Google Cloud |
-| `GOOGLE_PRIVATE_KEY_ID` | ID de la clave privada |
-| `GOOGLE_PRIVATE_KEY` | Clave privada completa (con `\n` literales) |
-| `GOOGLE_CLIENT_EMAIL` | Email de la cuenta de servicio |
-| `GOOGLE_CLIENT_ID` | ID del cliente |
+| `TOKEN` | Token de Telegram (solo para bot.py) |
 
-> El archivo `test.py` es un helper para convertir `credentials.json` al formato de env vars que usa Railway.
+La base de datos SQLite persiste en un **Railway Volume** montado en el directorio del proyecto.
 
 ---
 
@@ -140,7 +136,7 @@ En lugar de `credentials.json`, el bot lee las credenciales de Google desde vari
 - [x] v0.3 — Comando `/super` por supermercado
 - [x] v0.4 — Scraper automático de Carrefour (Playwright + VTEX)
 - [x] v0.5 — Web app con cards filtrables y modal de detalle
-- [ ] v0.6 — Más supermercados (Coto, Día, Jumbo)
+- [x] v0.6 — Scraper de Supermercados Día + migración a SQLite
 - [ ] v1.0 — Cobertura completa de bancos y supermercados
 
 ---

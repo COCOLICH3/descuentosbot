@@ -1,11 +1,12 @@
 import logging
 import os
-import gspread
-from google.oauth2.service_account import Credentials
+from datetime import datetime
+
+from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from dotenv import load_dotenv
-from datetime import datetime
+
+from db import get_all_descuentos
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
@@ -17,32 +18,12 @@ DIAS_ES = {
 
 logging.basicConfig(level=logging.INFO)
 
-def get_descuentos():
-
-    scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly",
-              "https://www.googleapis.com/auth/drive.readonly"]
-    
-    creds_info = {
-        "type": "service_account",
-        "project_id": os.getenv("GOOGLE_PROJECT_ID"),
-        "private_key_id": os.getenv("GOOGLE_PRIVATE_KEY_ID"),
-        "private_key": os.getenv("GOOGLE_PRIVATE_KEY").replace("\\n", "\n"),
-        "client_email": os.getenv("GOOGLE_CLIENT_EMAIL"),
-        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-    }
-    
-    creds = Credentials.from_service_account_info(creds_info, scopes=scopes)
-    client = gspread.authorize(creds)
-    sheet = client.open("descuentosbot").sheet1
-    return sheet.get_all_records()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    registros = get_descuentos()
+    registros = get_all_descuentos()
     bancos = sorted(set(row["banco"].lower() for row in registros))
     lista_bancos = "\n".join(f"   • {b}" for b in bancos)
-    
+
     texto = (
         "👋 ¡Hola! Soy DescuentoBot.\n\n"
         "Te digo qué descuentos tenés hoy en supermercados según tu banco.\n\n"
@@ -55,9 +36,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(texto)
 
+
 async def hoy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     dia_hoy = DIAS_ES[datetime.now().strftime("%A")]
-    registros = get_descuentos()
+    registros = get_all_descuentos()
 
     resultado = f"📅 Descuentos para hoy ({dia_hoy}):\n\n"
     encontrados = False
@@ -77,13 +59,14 @@ async def hoy(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(resultado)
 
+
 async def banco(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text("⚠️ Escribí el nombre de tu banco.\nEjemplo: /banco galicia")
         return
 
     nombre = context.args[0].lower()
-    registros = get_descuentos()
+    registros = get_all_descuentos()
     bancos_disponibles = list(set(row["banco"].lower() for row in registros))
 
     if nombre not in bancos_disponibles:
@@ -104,6 +87,7 @@ async def banco(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(resultado)
 
+
 async def supermercado(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args:
         await update.message.reply_text(
@@ -114,7 +98,7 @@ async def supermercado(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     nombre = context.args[0].lower()
-    registros = get_descuentos()
+    registros = get_all_descuentos()
     supers_disponibles = list(set(row["supermercado"].lower() for row in registros))
 
     if nombre not in supers_disponibles:
@@ -133,7 +117,8 @@ async def supermercado(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 resultado += f" (tope {row['tope']})"
             resultado += f"\n   💳 {row['metodo_pago']}\n\n"
 
-    await update.message.reply_text(resultado)   
+    await update.message.reply_text(resultado)
+
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
@@ -142,6 +127,7 @@ def main():
     app.add_handler(CommandHandler("banco", banco))
     app.add_handler(CommandHandler("super", supermercado))
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()

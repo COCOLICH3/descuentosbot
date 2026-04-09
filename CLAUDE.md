@@ -11,50 +11,56 @@ venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Run the bot locallyel
-python bot.py
+# Run the web app locally
+uvicorn web:app --reload --port 8000
 
-# Run test.py (utility to print credentials.json as JSON string, used for Railway setup)
-python test.py
+# Run scrapers manually
+python scraper_carrefour.py
+python scraper_dia.py
 ```
 
 ## Architecture
 
-This is a single-file Telegram bot (`bot.py`) that fetches discount data from a Google Sheets spreadsheet on every command call — there is no local cache or database.
+FastAPI web app (`web.py`) that serves discount data scraped from supermarket websites.
 
-**Data flow:** User sends Telegram command → handler calls `get_descuentos()` → authenticates with Google via service account → fetches all rows from the `descuentosbot` Google Sheet → filters/formats in memory → replies to user.
+**Data flow:** Scrapers write to `descuentos.db` (SQLite) → `web.py` reads from SQLite with a 5-minute in-memory cache → `/api/descuentos` endpoint → frontend (`templates/v2.html`)
 
-**Google Sheets schema** (columns must match exactly):
+**Database:** SQLite file `descuentos.db` in the project root. Managed via `db.py`. No external database needed.
 
-| banco | supermercado | dia | descuento | tope | metodo_pago |
-|---|---|---|---|---|---|
+**SQLite schema** (`descuentos` table):
+
+| campo        | descripción                                 |
+|---|---|
+| banco        | Nombre del banco / billetera                |
+| supermercado | Carrefour / Dia                             |
+| dia          | Día(s) de la semana, slash-separated        |
+| descuento    | Porcentaje (e.g. `25%`)                     |
+| tope         | Tope de devolución (e.g. `$10.000`)         |
+| metodo_pago  | Débito / Crédito / etc.                     |
+| vigencia     | Período de vigencia                         |
+| promocion    | Título de la promoción                      |
+| tipo_mercado | Carrefour only: Maxi / Market / Express     |
+| canal        | Día only: canal de venta                    |
+| scrapeado_en | Timestamp de la última actualización        |
 
 - `dia` supports slash-separated values (e.g., `Martes/Jueves`) and `"Todos los dias"`
 - Days must be written without accent marks (e.g., `Miercoles`, not `Miércoles`)
 
-**Bot commands registered in `main()`:**
-- `/start` — welcome + dynamic list of available banks from the sheet
-- `/hoy` — discounts for the current weekday (uses `DIAS_ES` dict to translate Python's English weekday names)
-- `/banco <nombre>` — discounts for a specific bank
-- `/super <nombre>` — discounts for a specific supermarket
+## Scrapers
+
+- `scraper_carrefour.py` — scrapes `carrefour.com.ar/descuentos-bancarios` using Playwright
+- `scraper_dia.py` — scrapes `diaonline.supermercadosdia.com.ar/medios-de-pago-y-promociones` using Playwright
+
+Each scraper deletes all existing rows for its supermarket and inserts fresh data on every run.
 
 ## Environment variables
 
-**Local:** uses `.env` file with `TOKEN` and Google credentials.
-
-**Production (Railway):** credentials.json is not used — instead, individual env vars are read and assembled into a dict in `get_descuentos()`:
+Only `TOKEN` is needed if running the Telegram bot. No Google credentials required.
 
 | Variable | Purpose |
 |---|---|
-| `TOKEN` | Telegram bot token |
-| `GOOGLE_PROJECT_ID` | Google Cloud project ID |
-| `GOOGLE_PRIVATE_KEY_ID` | Service account key ID |
-| `GOOGLE_PRIVATE_KEY` | Private key (with literal `\n` which are replaced at runtime) |
-| `GOOGLE_CLIENT_EMAIL` | Service account email |
-| `GOOGLE_CLIENT_ID` | Service account client ID |
-
-`test.py` is a helper script to parse `credentials.json` and print its contents as a flat JSON string, useful for copying values into Railway env vars.
+| `TOKEN` | Telegram bot token (only for bot.py) |
 
 ## Deployment
 
-Hosted on Railway as a worker process (not a web server). The `Procfile` defines: `worker: python bot.py`. The bot uses long polling (`run_polling()`), not webhooks.
+Hosted on Railway as a web service. `web.py` runs via uvicorn. SQLite database persists via a Railway Volume mounted at the project directory.

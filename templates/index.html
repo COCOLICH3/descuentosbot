@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DescuentoBot — Carrefour</title>
+  <title>DescuentoBot — Descuentos</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
@@ -43,7 +43,7 @@
     <div class="max-w-7xl mx-auto flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-black tracking-tight">🛒 DescuentoBot</h1>
-        <p class="text-gray-400 text-sm mt-0.5">Descuentos bancarios en Carrefour Argentina</p>
+        <p class="text-gray-400 text-sm mt-0.5">Descuentos bancarios en supermercados argentinos</p>
       </div>
       <button onclick="recargar()"
         class="text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-colors">
@@ -57,10 +57,14 @@
     <!-- Filtros -->
     <section class="space-y-3">
       <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs text-gray-500 uppercase tracking-widest mr-1">Super</span>
+        <div id="filtros-super" class="flex flex-wrap gap-1.5"></div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
         <span class="text-xs text-gray-500 uppercase tracking-widest mr-1">Día</span>
         <div id="filtros-dia" class="flex flex-wrap gap-1.5"></div>
       </div>
-      <div class="flex flex-wrap items-center gap-2">
+      <div id="fila-formato" class="flex flex-wrap items-center gap-2">
         <span class="text-xs text-gray-500 uppercase tracking-widest mr-1">Formato</span>
         <div id="filtros-formato" class="flex flex-wrap gap-1.5"></div>
       </div>
@@ -132,6 +136,7 @@
     const DIAS_ORDEN = ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo'];
 
     let todos = [];
+    let filtroSuper = 'todos';
     let filtroDia = 'todos';
     let filtroFormato = 'todos';
 
@@ -155,32 +160,52 @@
 
     function recargar() {
       todos = [];
+      filtroSuper = 'todos';
       filtroDia = 'todos';
       filtroFormato = 'todos';
       cargar();
     }
 
     function renderFiltros() {
+      // Supermercado
+      const supersSet = new Set();
+      todos.forEach(d => { if (d.supermercado) supersSet.add(d.supermercado); });
+      const supers = ['todos', ...Array.from(supersSet).sort()];
+      renderPills('filtros-super', supers, filtroSuper,
+        val => { filtroSuper = val; if (val !== 'Carrefour') filtroFormato = 'todos'; renderFiltros(); renderCards(); },
+        v => v === 'todos' ? 'Todos' : v);
+
+      // Día — basado en el super seleccionado (ignora filtro de día para mostrar todas las opciones)
+      const baseParaDias = filtroSuper === 'todos'
+        ? todos
+        : todos.filter(d => d.supermercado === filtroSuper);
       const diasSet = new Set();
-      todos.forEach(d => {
+      baseParaDias.forEach(d => {
         if (!d.dia || d.dia === 'Todos los dias' || d.dia === 'Sin datos') return;
         d.dia.split('/').forEach(s => diasSet.add(s.trim()));
       });
       const dias = ['todos', ...DIAS_ORDEN.filter(d => diasSet.has(d))];
-
-      const formatosSet = new Set();
-      todos.forEach(d => {
-        if (!d.tipo_mercado) return;
-        d.tipo_mercado.split('/').forEach(s => formatosSet.add(s.trim()));
-      });
-      const formatos = ['todos', ...Array.from(formatosSet).sort()];
-
       renderPills('filtros-dia', dias, filtroDia,
         val => { filtroDia = val; renderFiltros(); renderCards(); },
         v => v === 'todos' ? 'Todos' : v);
-      renderPills('filtros-formato', formatos, filtroFormato,
-        val => { filtroFormato = val; renderFiltros(); renderCards(); },
-        v => v === 'todos' ? 'Todos' : v.replace('Carrefour ', ''));
+
+      // Formato (solo cuando Carrefour está seleccionado)
+      const filaFormato = document.getElementById('fila-formato');
+      if (filtroSuper === 'Carrefour') {
+        filaFormato.classList.remove('hidden');
+        const baseParaFormatos = todos.filter(d => d.supermercado === 'Carrefour');
+        const formatosSet = new Set();
+        baseParaFormatos.forEach(d => {
+          if (!d.tipo_mercado) return;
+          d.tipo_mercado.split('/').forEach(s => formatosSet.add(s.trim()));
+        });
+        const formatos = ['todos', ...Array.from(formatosSet).sort()];
+        renderPills('filtros-formato', formatos, filtroFormato,
+          val => { filtroFormato = val; renderFiltros(); renderCards(); },
+          v => v === 'todos' ? 'Todos' : v.replace('Carrefour ', ''));
+      } else {
+        filaFormato.classList.add('hidden');
+      }
     }
 
     function renderPills(containerId, values, active, onClick, label) {
@@ -195,15 +220,17 @@
       });
     }
 
-    function filtrar() {
+    // skipSuper=true → ignora filtroSuper (para calcular opciones de día/formato del super seleccionado)
+    function filtrar(skipSuper = false) {
       return todos.filter(d => {
+        const matchSuper = skipSuper || filtroSuper === 'todos' || d.supermercado === filtroSuper;
         const dias = d.dia === 'Todos los dias'
           ? DIAS_ORDEN
           : (d.dia || '').split('/').map(s => s.trim());
         const matchDia = filtroDia === 'todos' || dias.includes(filtroDia);
         const formatos = (d.tipo_mercado || '').split('/').map(s => s.trim());
         const matchFormato = filtroFormato === 'todos' || formatos.includes(filtroFormato);
-        return matchDia && matchFormato;
+        return matchSuper && matchDia && matchFormato;
       });
     }
 
@@ -246,37 +273,33 @@
     // Guarda el objeto data en el card via índice para no serializar en HTML
     let cardData = [];
 
+    function badgeSuper(supermercado) {
+      if (!supermercado) return '';
+      if (supermercado === 'Carrefour') return '';  // formato ya indica dónde
+      return `<span class="text-xs bg-emerald-900 text-emerald-300 px-2 py-0.5 rounded-full">${supermercado}</span>`;
+    }
+
     function cardHTML(d, idx) {
       const color = colorDescuento(d.descuento);
-      const tope = d.tope && d.tope !== 'Sin tope' ? d.tope : null;
-      const vigencia = d.vigencia && d.vigencia !== 'Sin datos' ? d.vigencia : null;
-      const promocion = d.promocion || '';
+      const esDia = d.supermercado === 'Día' || d.supermercado === 'Dia';
 
       return `
-        <div class="card-enter bg-gray-900 rounded-2xl p-5 flex flex-col gap-3 border border-gray-800
-                    hover:border-gray-600 hover:bg-gray-800 transition-all cursor-pointer"
+        <div class="card-enter bg-gray-900 rounded-2xl p-4 flex flex-col gap-3 border border-gray-800
+                    hover:border-gray-600 hover:bg-gray-850 transition-all cursor-pointer"
              onclick="abrirModal(${idx})">
 
           <div class="flex flex-wrap gap-1.5">
             ${badgeDia(d.dia)}
-            ${badgeFormato(d.tipo_mercado)}
+            ${esDia ? badgeSuper(d.supermercado) : badgeFormato(d.tipo_mercado)}
           </div>
 
-          <div class="flex items-center gap-4">
+          <div class="flex items-center gap-3">
             <span class="text-5xl font-black leading-none ${color}">${d.descuento || '?'}</span>
             <div class="min-w-0">
-              <p class="text-white font-bold text-lg leading-tight truncate">${d.banco || 'Sin datos'}</p>
+              <p class="text-white font-bold text-base leading-tight truncate">${d.banco || 'Sin datos'}</p>
               <p class="text-gray-400 text-sm">${d.metodo_pago || ''}</p>
             </div>
           </div>
-
-          ${promocion ? `<p class="text-gray-300 text-sm line-clamp-2 leading-relaxed">${promocion}</p>` : ''}
-
-          ${(tope || vigencia) ? `
-          <div class="flex justify-between text-xs text-gray-500 mt-auto pt-3 border-t border-gray-800">
-            <span>${tope ? `Tope: ${tope}` : ''}</span>
-            <span class="text-right">${vigencia || ''}</span>
-          </div>` : ''}
 
         </div>`;
     }
@@ -319,11 +342,17 @@
       setText('modal-dia', dia === 'Todos los dias' ? 'Todos los días' : dia);
       showWrap('modal-dia-wrap', !!dia);
 
-      // Formato (dónde)
-      const formato = d.tipo_mercado && d.tipo_mercado !== 'Sin datos'
-        ? d.tipo_mercado.split('/').map(s => s.trim().replace('Carrefour ', '')).join(', ')
-        : '';
-      setText('modal-formato', formato || 'Carrefour');
+      // Formato (dónde) — Carrefour usa tipo_mercado, Día usa canal
+      const esDiaCard = d.supermercado === 'Día' || d.supermercado === 'Dia';
+      let formato = '';
+      if (esDiaCard) {
+        formato = d.canal && d.canal !== 'Sin datos' ? d.canal : 'Supermercados Día';
+      } else {
+        formato = d.tipo_mercado && d.tipo_mercado !== 'Sin datos'
+          ? d.tipo_mercado.split('/').map(s => s.trim().replace('Carrefour ', '')).join(', ')
+          : 'Carrefour';
+      }
+      setText('modal-formato', formato);
       showWrap('modal-formato-wrap', true);
 
       // Tope
@@ -354,6 +383,20 @@
     });
 
     document.addEventListener('DOMContentLoaded', cargar);
+  </script>
+
+  <!-- Switcher de diseños -->
+  <div id="switcher" style="position:fixed;bottom:1.25rem;right:1.25rem;z-index:999;display:flex;gap:3px;background:rgba(10,10,10,.88);backdrop-filter:blur(10px);border-radius:999px;padding:4px;border:1px solid rgba(255,255,255,.1);box-shadow:0 4px 24px rgba(0,0,0,.5)">
+    <a href="/v1" id="sw-v1" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;font-size:11px;font-weight:800;text-decoration:none;color:#9ca3af;transition:all .15s">1</a>
+    <a href="/v2" id="sw-v2" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;font-size:11px;font-weight:800;text-decoration:none;color:#9ca3af;transition:all .15s">2</a>
+    <a href="/v3" id="sw-v3" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;font-size:11px;font-weight:800;text-decoration:none;color:#9ca3af;transition:all .15s">3</a>
+  </div>
+  <script>
+    (function(){
+      const cur = window.location.pathname;
+      const map = {'/v1':'sw-v1','/v2':'sw-v2','/v3':'sw-v3','/':'sw-v1'};
+      const id = map[cur]; if(id){const el=document.getElementById(id);el.style.background='#4f46e5';el.style.color='#fff';}
+    })();
   </script>
 
 </body>

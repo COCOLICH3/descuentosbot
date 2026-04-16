@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from db import get_all_descuentos
 
-app = FastAPI(title="DescuentoBot Web")
+app = FastAPI(title="descuenbot")
 
 CACHE_TTL = 300  # 5 minutos
 
@@ -31,7 +31,7 @@ TEMPLATES = Path(__file__).parent / "templates"
 
 @app.get("/", response_class=FileResponse)
 def index():
-    return FileResponse(TEMPLATES / "v2.html")
+    return FileResponse(TEMPLATES / "v3.html")
 
 
 @app.get("/api/descuentos")

@@ -1,4 +1,4 @@
-# DescuentoBot 🛒
+# descuenbot 🛒
 
 Web app que centraliza los descuentos bancarios en supermercados argentinos.
 Consultá rápido qué banco usar y en qué sucursal comprar para ahorrar hoy.
@@ -6,7 +6,7 @@ Consultá rápido qué banco usar y en qué sucursal comprar para ahorrar hoy.
 ## ¿Por qué existe esto?
 
 Los bancos publican sus descuentos por separado, en distintas apps y webs.
-DescuentoBot los consolida en un solo lugar de consulta rápida desde el browser.
+descuenbot los consolida en un solo lugar de consulta rápida desde el browser.
 
 ---
 

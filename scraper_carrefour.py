@@ -4,12 +4,52 @@ Uso: python scraper_carrefour.py
 Escribe los resultados en descuentos.db (SQLite).
 """
 import asyncio
+import json
+import os
 import re
 from datetime import datetime
 
+import httpx
 from playwright.async_api import async_playwright
 
 from db import save_descuentos
+
+LOGO_CACHE_FILE = "carrefour_logo_cache.json"
+_logo_cache: dict[str, str] = {}
+
+
+def _load_logo_cache():
+    global _logo_cache
+    if os.path.exists(LOGO_CACHE_FILE):
+        with open(LOGO_CACHE_FILE, encoding="utf-8") as f:
+            _logo_cache = json.load(f)
+
+
+def _save_logo_cache():
+    with open(LOGO_CACHE_FILE, "w", encoding="utf-8") as f:
+        json.dump(_logo_cache, f, ensure_ascii=False, indent=2)
+
+
+def identificar_banco_por_logo(img_url: str) -> str:
+    if not img_url:
+        return "Sin datos"
+    if img_url in _logo_cache:
+        return _logo_cache[img_url] or "Sin datos"
+    try:
+        os.makedirs("logos_sin_identificar", exist_ok=True)
+        resp = httpx.get(img_url, timeout=10, follow_redirects=True)
+        resp.raise_for_status()
+        ext = ".png" if "png" in resp.headers.get("content-type", "") else ".webp"
+        img_hash = img_url.split("/")[-1].split("?")[0].split(".")[0]
+        img_path = f"logos_sin_identificar/carrefour_{img_hash}{ext}"
+        with open(img_path, "wb") as f:
+            f.write(resp.content)
+        _logo_cache[img_url] = ""
+        _save_logo_cache()
+        print(f"    ? Logo nuevo guardado: {img_path}")
+    except Exception as e:
+        print(f"    ⚠️  No se pudo descargar el logo: {e}")
+    return "Sin datos"
 
 URL = "https://www.carrefour.com.ar/descuentos-bancarios"
 HEADERS = ["banco", "supermercado", "tipo_mercado", "dia", "descuento", "tope", "metodo_pago", "vigencia", "promocion"]
@@ -25,9 +65,10 @@ LOGO_CLASS_TO_TIPO = {
 
 BANCOS_CONOCIDOS = [
     "galicia", "santander", "bbva", "macro", "hsbc", "icbc",
+    "club la nacion", "club la nación",
     "ciudad", "nacion", "nación", "provincia", "patagonia", "supervielle",
     "naranja", "uala", "mercadopago", "mercado pago", "brubank", "bnp",
-    "frances", "francés",
+    "frances", "francés", "anses",
 ]
 
 DIAS_NORMALIZADOS = {
@@ -83,9 +124,18 @@ def _extraer_dia(text_lower: str) -> str:
 
 
 def _extraer_descuento(text: str) -> str:
-    # Busca patrones como "25%", "25 % de descuento", "hasta 30%"
+    # Cuotas tiene prioridad si aparece explícitamente
+    m_cuotas = re.search(r'(?:hasta\s+)?(\d+)\s+cuotas?\b', text, re.IGNORECASE)
+    if m_cuotas:
+        return f"{m_cuotas.group(1)} cuotas sin interés"
+    m_csi = re.search(r'(\d+)\s*csi\b', text, re.IGNORECASE)
+    if m_csi:
+        return f"{m_csi.group(1)} cuotas sin interés"
+    # Porcentaje (ignorar 0%)
     m = re.search(r'(\d+)\s*%', text)
-    return f"{m.group(1)}%" if m else "Sin datos"
+    if m and int(m.group(1)) > 0:
+        return f"{m.group(1)}%"
+    return "Sin datos"
 
 
 def _extraer_tope(text: str) -> str:
@@ -139,7 +189,7 @@ def _extraer_vigencia(text: str) -> str:
     return "Sin datos"
 
 
-def parse_bloque(text: str, logo_classes: list[str] | None = None, promocion: str = "") -> dict | None:
+def parse_bloque(text: str, logo_classes: list[str] | None = None, promocion: str = "", img_src: str = "") -> dict | None:
     """Parsea un bloque de texto crudo y devuelve un dict con los campos."""
     text = text.strip()
     if not text or len(text) < 10:
@@ -149,13 +199,25 @@ def parse_bloque(text: str, logo_classes: list[str] | None = None, promocion: st
 
     banco = _extraer_banco(text_lower)
     descuento = _extraer_descuento(text)
+    if descuento == "Sin datos" and promocion:
+        descuento = _extraer_descuento(promocion)
 
-    # Si el texto principal no tiene datos, intentar extraerlos del título de la promoción
+    # Si el texto principal no tiene datos, intentar desde el título de la promoción
     if banco == "Sin datos" and promocion:
         banco = _extraer_banco(promocion.lower())
+    # Último recurso: logo cache
+    if banco == "Sin datos" and img_src:
+        banco_logo = _logo_cache.get(img_src, "")
+        if banco_logo:
+            banco = banco_logo
+        else:
+            banco = identificar_banco_por_logo(img_src)
+
     metodo_pago = _extraer_metodo_pago(text_lower)
     if metodo_pago == "Sin datos" and promocion:
         metodo_pago = _extraer_metodo_pago(promocion.lower())
+    if "club la nacion" in banco.lower() or "club la nación" in banco.lower():
+        metodo_pago = "Club La Nación"
 
     # Descartar bloques sin información útil
     if banco == "Sin datos" and descuento == "Sin datos":
@@ -179,6 +241,7 @@ def parse_bloque(text: str, logo_classes: list[str] | None = None, promocion: st
 # ---------------------------------------------------------------------------
 
 async def scrape() -> list[list]:
+    _load_logo_cache()
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page()
@@ -229,7 +292,9 @@ async def scrape() -> list[list]:
                 });
                 const titleEl = card.querySelector('[class*="ColRightTittle"]');
                 const promocion = titleEl ? (titleEl.textContent || titleEl.innerText || '').trim() : '';
-                return { text: card.textContent, logo_classes, promocion };
+                const imgEl = card.querySelector('img');
+                const img_src = imgEl ? (imgEl.src || imgEl.getAttribute('src') || '') : '';
+                return { text: card.textContent, logo_classes, promocion, img_src };
             });
         }
         """)
@@ -245,7 +310,7 @@ async def scrape() -> list[list]:
     filas = []
     vistos = set()
     for bloque in bloques:
-        parsed = parse_bloque(bloque["text"], bloque.get("logo_classes", []), bloque.get("promocion", ""))
+        parsed = parse_bloque(bloque["text"], bloque.get("logo_classes", []), bloque.get("promocion", ""), bloque.get("img_src", ""))
         if not parsed:
             continue
         clave = (parsed["banco"], parsed["tipo_mercado"], parsed["dia"], parsed["descuento"])

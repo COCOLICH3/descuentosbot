@@ -25,7 +25,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lista_bancos = "\n".join(f"   • {b}" for b in bancos)
 
     texto = (
-        "👋 ¡Hola! Soy DescuentoBot.\n\n"
+        "👋 ¡Hola! Soy descuenbot.\n\n"
         "Te digo qué descuentos tenés hoy en supermercados según tu banco.\n\n"
         "📌 Comandos disponibles:\n"
         "/hoy — Ver todos los descuentos de hoy\n"

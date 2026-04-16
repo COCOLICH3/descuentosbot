@@ -3,153 +3,507 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>DescuentoBot</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>descuenbot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
-    * { box-sizing: border-box; }
-    body { font-family: 'Inter', sans-serif; background: #08080f; color: #cbd5e1; min-height: 100vh; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    .sidebar { position:fixed; top:0; left:0; width:216px; height:100vh; background:#0d0d18; border-right:1px solid rgba(255,255,255,.06); overflow-y:auto; display:flex; flex-direction:column; padding:1.5rem 1rem; z-index:10; }
-    .main { margin-left:216px; padding:1.5rem 2rem; min-height:100vh; }
+    :root {
+      --bg:        #EDE8DC;
+      --surface:   #F7F3EB;
+      --ink:       #0F0F0F;
+      --ink-soft:  #2A2A28;
+      --ink-faint: #666660;
+      --border:    #0F0F0F;
+      --shadow:    4px 4px 0px #0F0F0F;
+      --shadow-lg: 6px 6px 0px #0F0F0F;
+      --yellow:    #FFE500;
+      --green:     #00D97E;
+      --orange:    #FF7A00;
+      --blue:      #0057FF;
+      --radius:    6px;
+    }
 
-    .filter-label { font-size:.6rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.1em; margin-bottom:.6rem; }
-    .filter-section { margin-bottom:1.5rem; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+    }
 
-    .sf-btn { display:block; width:100%; text-align:left; padding:.4rem .7rem; border-radius:.5rem; font-size:.8rem; font-weight:500; cursor:pointer; transition:all .12s; background:transparent; color:#64748b; border:none; }
-    .sf-btn:hover { background:rgba(255,255,255,.06); color:#cbd5e1; }
-    .sf-btn.active { background:#1e1b4b; color:#a5b4fc; font-weight:600; }
+    /* ── Header ── */
+    #header {
+      background: var(--ink);
+      color: var(--bg);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 2px solid var(--ink);
+    }
+    #header .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 26px;
+      letter-spacing: 2px;
+      color: var(--yellow);
+    }
+    #header .subtitle {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #888880;
+      display: none;
+    }
+    @media(min-width: 600px) { #header .subtitle { display: block; } }
 
-    .strip { display:flex; align-items:center; gap:1.5rem; padding:1.1rem 1.4rem; background:#0e0e1c; border-radius:1rem; border:1px solid rgba(255,255,255,.05); border-left-width:4px; cursor:pointer; transition:all .15s; animation:stripIn .14s ease-out; }
-    .strip:hover { background:#13132a; border-color-right: rgba(255,255,255,.1); }
-    @keyframes stripIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+    /* ── Filter bar ── */
+    #filter-bar {
+      background: var(--bg);
+      border-bottom: 2px solid var(--ink);
+      padding: 14px 24px;
+      position: sticky;
+      top: 56px;
+      z-index: 90;
+    }
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .filter-row:last-child { margin-bottom: 0; }
+    .filter-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--ink-soft);
+      width: 80px;
+      flex-shrink: 0;
+    }
+    .filter-pills { display: flex; flex-wrap: wrap; gap: 6px; }
 
-    .pct-g { color:#4ade80; }
-    .pct-y { color:#facc15; }
-    .pct-b { color:#60a5fa; }
-    .pct-n { color:#475569; }
+    .pill {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 12px;
+      border: 2px solid var(--ink);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+      transition: transform .1s, box-shadow .1s;
+      user-select: none;
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+    .pill:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
+    .pill:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink); }
+    .pill.active { background: var(--ink); color: var(--yellow); }
 
-    .border-g { border-left-color:#16a34a; }
-    .border-y { border-left-color:#ca8a04; }
-    .border-b { border-left-color:#2563eb; }
-    .border-n { border-left-color:#334155; }
+    /* Day tiles */
+    .day-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border: 2px solid var(--ink);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      transition: transform .1s, box-shadow .1s;
+      box-shadow: 2px 2px 0 var(--ink);
+      user-select: none;
+    }
+    .day-tile:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
+    .day-tile:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink); }
+    .day-tile.active { background: var(--ink); color: var(--yellow); }
+    .day-tile .abrev { font-size: 10px; font-weight: 800; line-height: 1; }
+    .day-tile .num { font-size: 8px; font-weight: 500; opacity: .6; margin-top: 2px; }
+    .day-tile.active .num { opacity: .7; }
 
-    /* Drawer */
-    #drawer-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(4px); z-index:50; }
-    #drawer { position:fixed; top:0; right:-440px; width:400px; height:100vh; background:#0d0d18; border-left:1px solid rgba(255,255,255,.08); overflow-y:auto; z-index:51; transition:right .22s cubic-bezier(.4,0,.2,1); padding:2rem 1.75rem; }
-    #drawer.open { right:0; }
+    /* ── Grid ── */
+    #main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    #contador {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--ink-soft);
+      margin-bottom: 16px;
+    }
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
 
-    .drawer-field { background:#13132a; border-radius:.75rem; padding:.9rem 1rem; border:1px solid rgba(255,255,255,.06); }
-    .drawer-field-label { font-size:.6rem; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.1em; margin-bottom:.35rem; }
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 2px solid var(--ink);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      transition: transform .12s ease, box-shadow .12s ease;
+      overflow: hidden;
+      animation: cardIn .15s ease-out both;
+    }
+    .card:hover { transform: translate(-2px, -2px); box-shadow: var(--shadow-lg); }
+    .card:active { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--ink); }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .card-header {
+      padding: 16px 16px 12px;
+      border-bottom: 2px solid var(--ink);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .card-discount {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 64px;
+      line-height: 1;
+      letter-spacing: 1px;
+    }
+    .card-discount.green  { color: var(--green); }
+    .card-discount.yellow { color: var(--yellow); -webkit-text-stroke: 1px var(--ink); }
+    .card-discount.orange { color: var(--orange); }
+    .card-discount.blue   { color: var(--blue); }
+    .card-discount.gray   { color: var(--ink-faint); }
+
+    .card-super-badge {
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 3px 8px;
+      border: 2px solid var(--ink);
+      border-radius: 4px;
+      background: var(--bg);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .card-body { padding: 12px 16px 14px; }
+    .card-bank {
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 6px;
+      color: var(--ink);
+    }
+    .card-meta {
+      font-size: 11px;
+      color: var(--ink-soft);
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      border-top: 2px solid var(--bg);
+      background: var(--bg);
+    }
+    .card-days { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--ink-soft); }
+    .card-where { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--ink-faint); }
+
+    /* ── Empty / Loading ── */
+    #loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 0;
+      gap: 16px;
+    }
+    .spinner {
+      width: 28px; height: 28px;
+      border: 3px solid var(--ink);
+      border-top-color: var(--yellow);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: var(--ink-soft); }
+
+    #empty {
+      display: none;
+      text-align: center;
+      padding: 80px 0;
+    }
+    #empty .empty-big { font-family: 'Bebas Neue', sans-serif; font-size: 80px; color: var(--ink-faint); line-height: 1; }
+    #empty .empty-sub { font-size: 13px; font-weight: 600; color: var(--ink-soft); margin-top: 8px; }
+
+    #error-box {
+      display: none;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      border: 2px solid #D00;
+      border-radius: var(--radius);
+      background: #FFF0F0;
+      font-size: 13px;
+      font-weight: 600;
+      color: #D00;
+      box-shadow: 3px 3px 0 #D00;
+    }
+
+    /* ── Modal ── */
+    #modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15,15,15,.6);
+      backdrop-filter: blur(2px);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    #modal-overlay.open { display: flex; }
+    #modal-box {
+      background: var(--surface);
+      border: 2px solid var(--ink);
+      border-radius: var(--radius);
+      box-shadow: 8px 8px 0 var(--ink);
+      width: 100%;
+      max-width: 420px;
+      max-height: 90vh;
+      overflow-y: auto;
+      animation: modalIn .16s ease-out;
+    }
+    @keyframes modalIn { from { opacity:0; transform: scale(.96) translateY(10px); } to { opacity:1; transform: none; } }
+
+    .modal-top {
+      border-bottom: 2px solid var(--ink);
+      padding: 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .modal-discount-big {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 80px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .modal-discount-big.green  { color: var(--green); }
+    .modal-discount-big.yellow { color: var(--yellow); -webkit-text-stroke: 1px var(--ink); }
+    .modal-discount-big.orange { color: var(--orange); }
+    .modal-discount-big.blue   { color: var(--blue); }
+    .modal-discount-big.gray   { color: var(--ink-faint); }
+
+    .modal-close {
+      margin-left: auto;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--ink-soft);
+      flex-shrink: 0;
+      line-height: 1;
+      padding: 4px;
+    }
+    .modal-close:hover { color: var(--ink); }
+
+    .modal-bank { font-size: 22px; font-weight: 800; color: var(--ink); line-height: 1.1; }
+    .modal-method { font-size: 13px; font-weight: 500; color: var(--ink-soft); margin-top: 4px; }
+
+    .modal-body { padding: 20px; }
+    .modal-section { margin-bottom: 16px; }
+    .modal-section:last-child { margin-bottom: 0; }
+    .modal-field-label {
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--ink-faint);
+      margin-bottom: 4px;
+    }
+    .modal-field-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-field {
+      padding: 10px 12px;
+      border: 2px solid var(--ink);
+      border-radius: var(--radius);
+      background: var(--bg);
+    }
+
   </style>
 </head>
 <body>
 
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div style="margin-bottom:2rem">
-      <p style="font-weight:900;font-size:1.05rem;color:#f1f5f9;letter-spacing:-.02em">DescuentoBot</p>
-      <p style="font-size:.7rem;color:#475569;margin-top:.2rem">Descuentos bancarios</p>
+  <header id="header">
+    <span class="logo">descuenbot</span>
+    <span class="subtitle">Descuentos bancarios · Supermercados AR</span>
+    <button onclick="recargar()" style="font-family:inherit;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:6px 14px;border:2px solid #555;border-radius:5px;background:transparent;color:#888;cursor:pointer;transition:color .15s,border-color .15s" onmouseover="this.style.color='#FFE500';this.style.borderColor='#FFE500'" onmouseout="this.style.color='#888';this.style.borderColor='#555'">↺ Actualizar</button>
+  </header>
+
+  <!-- Filter bar -->
+  <div id="filter-bar">
+    <div class="filter-row">
+      <span class="filter-label">🛒 Super</span>
+      <div class="filter-pills" id="filtros-super"></div>
+    </div>
+    <div class="filter-row">
+      <span class="filter-label">📅 Día</span>
+      <div class="filter-pills" id="filtros-dia"></div>
+    </div>
+    <div class="filter-row" id="fila-formato" style="display:none">
+      <span class="filter-label">🏪 Local</span>
+      <div class="filter-pills" id="filtros-formato"></div>
+    </div>
+    <div class="filter-row" id="fila-banco" style="display:none">
+      <span class="filter-label">🏦 Banco</span>
+      <div class="filter-pills" id="filtros-banco"></div>
+    </div>
+  </div>
+
+  <main id="main">
+    <div id="error-box"></div>
+    <p id="contador"></p>
+
+    <div id="loading">
+      <div class="spinner"></div>
+      <span class="loading-text">Cargando descuentos…</span>
     </div>
 
-    <div class="filter-section">
-      <p class="filter-label">Supermercado</p>
-      <div id="filtros-super"></div>
+    <div id="empty">
+      <div class="empty-big">0</div>
+      <div class="empty-sub">Sin resultados para los filtros seleccionados</div>
     </div>
 
-    <div class="filter-section">
-      <p class="filter-label">Día</p>
-      <div id="filtros-dia"></div>
-    </div>
-
-    <div class="filter-section" id="fila-formato" style="display:none">
-      <p class="filter-label">Formato</p>
-      <div id="filtros-formato"></div>
-    </div>
-
-    <div style="margin-top:auto;padding-top:1rem">
-      <button onclick="recargar()" style="font-size:.75rem;color:#475569;padding:.5rem .75rem;border-radius:.5rem;border:1px solid rgba(255,255,255,.08);background:transparent;cursor:pointer;width:100%;transition:all .12s" onmouseover="this.style.color='#cbd5e1';this.style.borderColor='rgba(255,255,255,.15)'" onmouseout="this.style.color='#475569';this.style.borderColor='rgba(255,255,255,.08)'">↺ Actualizar datos</button>
-    </div>
-  </aside>
-
-  <!-- Main -->
-  <main class="main">
-    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1.25rem">
-      <p id="contador" style="font-size:.8rem;color:#475569"></p>
-    </div>
-
-    <div id="error" style="display:none;background:#1a0a0a;border:1px solid #7f1d1d;color:#fca5a5;border-radius:.75rem;padding:.75rem 1rem;font-size:.85rem;margin-bottom:1rem"></div>
-
-    <div id="lista" style="display:flex;flex-direction:column;gap:.6rem"></div>
-
-    <div id="loading" style="display:flex;justify-content:center;padding:5rem 0">
-      <div style="width:32px;height:32px;border:2px solid #4f46e5;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite"></div>
-    </div>
-    <style>@keyframes spin { to { transform:rotate(360deg); } }</style>
+    <div id="grid"></div>
   </main>
 
-  <!-- Drawer overlay -->
-  <div id="drawer-overlay" onclick="cerrarDrawer()"></div>
-
-  <!-- Drawer -->
-  <div id="drawer">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.75rem">
-      <div style="display:flex;align-items:center;gap:1rem">
-        <span id="drawer-descuento" style="font-size:3.5rem;font-weight:900;line-height:1"></span>
-        <div>
-          <p id="drawer-banco" style="font-size:1.25rem;font-weight:700;color:#f1f5f9"></p>
-          <p id="drawer-metodo" style="color:#64748b;font-size:.85rem;margin-top:.15rem"></p>
+  <!-- Modal -->
+  <div id="modal-overlay" onclick="handleOverlayClick(event)">
+    <div id="modal-box">
+      <div class="modal-top">
+        <div id="modal-discount-big" class="modal-discount-big gray">—</div>
+        <div style="flex:1;min-width:0">
+          <div id="modal-bank" class="modal-bank"></div>
+          <div id="modal-method" class="modal-method"></div>
+        </div>
+        <span class="modal-close" onclick="cerrarModal()">✕</span>
+      </div>
+      <div class="modal-body">
+        <div id="modal-promo-wrap" class="modal-section" style="display:none">
+          <div class="modal-field-label">Descripción</div>
+          <div id="modal-promo" class="modal-field-value" style="line-height:1.5;color:#555"></div>
+        </div>
+        <div class="modal-grid modal-section">
+          <div id="modal-dia-wrap" class="modal-field" style="display:none">
+            <div class="modal-field-label">Día</div>
+            <div id="modal-dia" class="modal-field-value"></div>
+          </div>
+          <div id="modal-donde-wrap" class="modal-field">
+            <div class="modal-field-label">Dónde</div>
+            <div id="modal-donde" class="modal-field-value"></div>
+          </div>
+          <div id="modal-tope-wrap" class="modal-field" style="display:none">
+            <div class="modal-field-label">Tope</div>
+            <div id="modal-tope" class="modal-field-value"></div>
+          </div>
+          <div id="modal-vig-wrap" class="modal-field" style="display:none">
+            <div class="modal-field-label">Vigencia</div>
+            <div id="modal-vig" class="modal-field-value"></div>
+          </div>
         </div>
       </div>
-      <button onclick="cerrarDrawer()" style="color:#475569;font-size:1.1rem;background:none;border:none;cursor:pointer;padding:.25rem;line-height:1" onmouseover="this.style.color='#cbd5e1'" onmouseout="this.style.color='#475569'">✕</button>
-    </div>
-
-    <div id="drawer-promocion-wrap" style="display:none;margin-bottom:1.25rem">
-      <p class="drawer-field-label">Descripción</p>
-      <p id="drawer-promocion" style="color:#94a3b8;line-height:1.6;font-size:.9rem"></p>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
-      <div id="drawer-dia-wrap" class="drawer-field" style="display:none">
-        <p class="drawer-field-label">Día</p>
-        <p id="drawer-dia" style="color:#e2e8f0;font-weight:600;font-size:.875rem"></p>
-      </div>
-      <div id="drawer-formato-wrap" class="drawer-field" style="display:none">
-        <p class="drawer-field-label">Dónde</p>
-        <p id="drawer-formato" style="color:#e2e8f0;font-weight:600;font-size:.875rem"></p>
-      </div>
-      <div id="drawer-tope-wrap" class="drawer-field" style="display:none">
-        <p class="drawer-field-label">Tope</p>
-        <p id="drawer-tope" style="color:#e2e8f0;font-weight:600;font-size:.875rem"></p>
-      </div>
-      <div id="drawer-vigencia-wrap" class="drawer-field" style="display:none">
-        <p class="drawer-field-label">Vigencia</p>
-        <p id="drawer-vigencia" style="color:#e2e8f0;font-weight:600;font-size:.875rem"></p>
-      </div>
     </div>
   </div>
 
-  <!-- Switcher de diseños -->
-  <div style="position:fixed;bottom:1.25rem;right:1.25rem;z-index:999;display:flex;gap:3px;background:rgba(10,10,20,.9);backdrop-filter:blur(10px);border-radius:999px;padding:4px;border:1px solid rgba(255,255,255,.1);box-shadow:0 4px 24px rgba(0,0,0,.6)">
-    <a href="/v1" id="sw-v1" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;font-size:11px;font-weight:800;text-decoration:none;color:#475569;transition:all .15s">1</a>
-    <a href="/v2" id="sw-v2" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;font-size:11px;font-weight:800;text-decoration:none;color:#475569;transition:all .15s">2</a>
-    <a href="/v3" id="sw-v3" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:999px;font-size:11px;font-weight:800;text-decoration:none;color:#475569;transition:all .15s">3</a>
-  </div>
 
   <script>
     const DIAS_ORDEN = ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo'];
-    let todos = [], filtroSuper = 'todos', filtroDia = 'todos', filtroFormato = 'todos';
+    const _hoy = new Date().getDay();
+    const DIA_HOY = DIAS_ORDEN[_hoy === 0 ? 6 : _hoy - 1];
 
+    let todos = [], filtroSuper = 'todos', filtroDia = DIA_HOY, filtroFormato = 'todos', filtroBanco = 'todos', bancoPinned = false;
+    let rowData = [];
+
+    // ── Utils ──────────────────────────────────────────────────────────────
+    function diasNorm(dia) {
+      if (!dia || dia === 'Sin datos') return [];
+      if (dia === 'Todos los dias') return DIAS_ORDEN;
+      return dia.split('/').map(s => s.trim()).filter(Boolean);
+    }
+
+    function diasLabel(dia) {
+      if (!dia || dia === 'Sin datos') return 'Sin datos';
+      const parts = diasNorm(dia);
+      if (parts.length >= 7 || dia === 'Todos los dias') return 'Todos los días';
+      return parts.join(' / ');
+    }
+
+    function canalLabel(canal) {
+      if (!canal || canal === 'Sin datos') return 'Aplica Tienda';
+      if (/online/i.test(canal)) return 'Online';
+      if (/tienda/i.test(canal)) return 'Tienda';
+      return canal;
+    }
+
+    function descuentoLabel(d) {
+      if (!d) return '?';
+      const m = d.match(/^(\d+)\s*(?:csi|cuotas?\s+sin\s+inter[eé]s)/i);
+      if (m) return `${m[1]} cuotas sin interés`;
+      if (/cuotas?\s+sin\s+inter|\bcsi\b/i.test(d)) return 'Cuotas s/i';
+      return d;
+    }
+
+    function badgeLabel(d) {
+      if (!d) return '?';
+      if (/cuotas?\s+sin\s+inter|\bcsi\b/i.test(d)) return 'CUOTAS';
+      return d;
+    }
+
+    function discountClass(d) {
+      if (!d) return 'gray';
+      if (/cuotas/i.test(d)) return 'blue';
+      const n = parseInt(d);
+      if (isNaN(n)) return 'gray';
+      if (n >= 30) return 'green';
+      if (n >= 20) return 'yellow';
+      if (n >= 10) return 'orange';
+      return 'gray';
+    }
+
+    // ── Data ──────────────────────────────────────────────────────────────
     async function cargar() {
       document.getElementById('loading').style.display = 'flex';
-      document.getElementById('error').style.display = 'none';
+      document.getElementById('error-box').style.display = 'none';
+      document.getElementById('grid').innerHTML = '';
+      document.getElementById('empty').style.display = 'none';
       try {
         const res = await fetch('/api/descuentos');
         if (!res.ok) throw new Error(`Error ${res.status}`);
         todos = await res.json();
-        renderFiltros(); renderStrips();
+        renderFiltros();
+        renderGrid();
       } catch(e) {
-        const el = document.getElementById('error');
+        const el = document.getElementById('error-box');
         el.textContent = `No se pudieron cargar los datos: ${e.message}`;
         el.style.display = 'block';
       } finally {
@@ -158,154 +512,194 @@
     }
 
     function recargar() {
-      todos = []; filtroSuper = 'todos'; filtroDia = 'todos'; filtroFormato = 'todos';
+      todos = []; filtroSuper = 'todos'; filtroDia = DIA_HOY; filtroFormato = 'todos'; filtroBanco = 'todos'; bancoPinned = false;
       cargar();
     }
 
+    // ── Filters ──────────────────────────────────────────────────────────
     function renderFiltros() {
-      const supersSet = new Set();
-      todos.forEach(d => { if (d.supermercado) supersSet.add(d.supermercado); });
-      renderSfBtns('filtros-super', ['todos', ...Array.from(supersSet).sort()], filtroSuper,
-        val => { filtroSuper = val; if (val !== 'Carrefour') filtroFormato = 'todos'; renderFiltros(); renderStrips(); },
+      const supersSet = new Set(todos.map(d => d.supermercado).filter(Boolean).sort());
+      renderPills('filtros-super', ['todos', ...supersSet], filtroSuper,
+        val => { filtroSuper = val; if (val !== 'Carrefour') filtroFormato = 'todos'; if (!bancoPinned) filtroBanco = 'todos'; renderFiltros(); renderGrid(); },
         v => v === 'todos' ? 'Todos' : v);
 
       const base = filtroSuper === 'todos' ? todos : todos.filter(d => d.supermercado === filtroSuper);
       const diasSet = new Set();
-      base.forEach(d => {
-        if (!d.dia || d.dia === 'Todos los dias' || d.dia === 'Sin datos') return;
-        d.dia.split('/').forEach(s => diasSet.add(s.trim()));
-      });
-      renderSfBtns('filtros-dia', ['todos', ...DIAS_ORDEN.filter(d => diasSet.has(d))], filtroDia,
-        val => { filtroDia = val; renderFiltros(); renderStrips(); },
-        v => v === 'todos' ? 'Todos' : v);
+      base.forEach(d => { diasNorm(d.dia).forEach(x => diasSet.add(x)); });
+      renderDayPills('filtros-dia', ['todos', ...DIAS_ORDEN.filter(d => diasSet.has(d))], filtroDia,
+        val => { filtroDia = val; if (!bancoPinned) filtroBanco = 'todos'; renderFiltros(); renderGrid(); });
 
-      const filaFormato = document.getElementById('fila-formato');
+      const filaFmt = document.getElementById('fila-formato');
       if (filtroSuper === 'Carrefour') {
-        filaFormato.style.display = 'block';
+        filaFmt.style.display = 'flex';
         const fmtSet = new Set();
         todos.filter(d => d.supermercado === 'Carrefour').forEach(d => {
           if (d.tipo_mercado) d.tipo_mercado.split('/').forEach(s => fmtSet.add(s.trim()));
         });
-        renderSfBtns('filtros-formato', ['todos', ...Array.from(fmtSet).sort()], filtroFormato,
-          val => { filtroFormato = val; renderFiltros(); renderStrips(); },
+        renderPills('filtros-formato', ['todos', ...Array.from(fmtSet).sort()], filtroFormato,
+          val => { filtroFormato = val; if (!bancoPinned) filtroBanco = 'todos'; renderFiltros(); renderGrid(); },
           v => v === 'todos' ? 'Todos' : v.replace('Carrefour ', ''));
       } else {
-        filaFormato.style.display = 'none';
+        filaFmt.style.display = 'none';
+      }
+
+      const baseB = todos.filter(d => {
+        const ms = filtroSuper === 'todos' || d.supermercado === filtroSuper;
+        const md = filtroDia === 'todos' || diasNorm(d.dia).includes(filtroDia);
+        return ms && md;
+      });
+      const bancosSet = new Set(baseB.map(d => d.banco).filter(Boolean).sort());
+      const filaBanco = document.getElementById('fila-banco');
+      if (bancosSet.size > 0) {
+        filaBanco.style.display = 'flex';
+        renderPills('filtros-banco', ['todos', ...bancosSet], filtroBanco,
+          val => { filtroBanco = val; if (val === 'todos') bancoPinned = false; renderFiltros(); renderGrid(); },
+          v => v === 'todos' ? 'Todos' : v,
+          (btn, val) => {
+            if (val === filtroBanco && val !== 'todos') {
+              const pin = document.createElement('span');
+              pin.textContent = bancoPinned ? ' ×' : ' 📌';
+              pin.title = bancoPinned ? 'Despinear' : 'Fijar banco';
+              pin.style.cssText = 'cursor:pointer;font-size:10px;margin-left:2px;opacity:.8';
+              pin.addEventListener('click', e => { e.stopPropagation(); bancoPinned = !bancoPinned; renderFiltros(); renderGrid(); });
+              btn.appendChild(pin);
+            }
+          });
+      } else {
+        filaBanco.style.display = 'none';
       }
     }
 
-    function renderSfBtns(containerId, values, active, onClick, label) {
-      const c = document.getElementById(containerId); c.innerHTML = '';
+    function renderPills(id, values, active, onClick, label, postRender) {
+      const c = document.getElementById(id); c.innerHTML = '';
       values.forEach(val => {
         const btn = document.createElement('button');
         btn.textContent = label(val);
-        btn.className = `sf-btn${val === active ? ' active' : ''}`;
+        btn.className = 'pill' + (val === active ? ' active' : '');
+        btn.addEventListener('click', () => onClick(val));
+        if (postRender) postRender(btn, val);
+        c.appendChild(btn);
+      });
+    }
+
+    const DIA_ABREV = { 'todos':'·7·','Lunes':'Lu','Martes':'Ma','Miercoles':'Mi','Jueves':'Ju','Viernes':'Vi','Sabado':'Sa','Domingo':'Do' };
+    const DIA_NUM   = { 'todos':'','Lunes':'2','Martes':'3','Miercoles':'4','Jueves':'5','Viernes':'6','Sabado':'7','Domingo':'1' };
+
+    function renderDayPills(id, values, active, onClick) {
+      const c = document.getElementById(id); c.innerHTML = '';
+      values.forEach(val => {
+        const btn = document.createElement('button');
+        btn.className = 'day-tile' + (val === active ? ' active' : '');
+        btn.title = val === 'todos' ? 'Todos los días' : val;
+        const num = DIA_NUM[val] || '';
+        btn.innerHTML = `<span class="abrev">${DIA_ABREV[val] || val.slice(0,2)}</span>${num ? `<span class="num">${num}</span>` : ''}`;
         btn.addEventListener('click', () => onClick(val));
         c.appendChild(btn);
       });
     }
 
+    // ── Grid ──────────────────────────────────────────────────────────────
     function filtrar() {
       return todos.filter(d => {
-        const matchSuper = filtroSuper === 'todos' || d.supermercado === filtroSuper;
-        const dias = d.dia === 'Todos los dias' ? DIAS_ORDEN : (d.dia || '').split('/').map(s => s.trim());
-        const matchDia = filtroDia === 'todos' || dias.includes(filtroDia);
+        const ms = filtroSuper === 'todos' || d.supermercado === filtroSuper;
+        const md = filtroDia === 'todos' || diasNorm(d.dia).includes(filtroDia);
         const fmts = (d.tipo_mercado || '').split('/').map(s => s.trim());
-        const matchFmt = filtroFormato === 'todos' || fmts.includes(filtroFormato);
-        return matchSuper && matchDia && matchFmt;
+        const mf = filtroFormato === 'todos' || fmts.includes(filtroFormato);
+        const mb = filtroBanco === 'todos' || d.banco === filtroBanco;
+        return ms && md && mf && mb;
       });
     }
 
-    function pctClasses(descuento) {
-      const n = parseInt(descuento);
-      if (isNaN(n)) return { text:'pct-n', border:'border-n' };
-      if (n >= 30)   return { text:'pct-g', border:'border-g' };
-      if (n >= 20)   return { text:'pct-y', border:'border-y' };
-      return               { text:'pct-b', border:'border-b' };
-    }
-
-    let stripData = [];
-
-    function stripHTML(d, idx) {
-      const { text, border } = pctClasses(d.descuento);
-      const esDia = d.supermercado === 'Día' || d.supermercado === 'Dia';
-      const dias = !d.dia || d.dia === 'Sin datos' ? '' :
-                   d.dia === 'Todos los dias' ? 'Todos los días' :
-                   d.dia.replace(/\//g, ' · ');
-      const donde = esDia
-        ? (d.canal && d.canal !== 'Sin datos' ? d.canal : 'Supermercados Día')
-        : (d.tipo_mercado || '').replace(/Carrefour /g, '').replace('Carrefour', 'Hiper') || '';
-      const sub = [d.metodo_pago, dias, donde].filter(s => s && s !== 'Sin datos').join('  ·  ');
-
-      return `
-        <div class="strip ${border}" onclick="abrirDrawer(${idx})">
-          <div style="flex:1;min-width:0">
-            <p style="font-size:1.35rem;font-weight:900;color:#f1f5f9;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.banco || 'Sin datos'}</p>
-            ${sub ? `<p style="font-size:.78rem;color:#475569;margin-top:.35rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sub}</p>` : ''}
-          </div>
-          <span class="text-5xl font-black leading-none ${text}" style="shrink:0">${d.descuento || '?'}</span>
-        </div>`;
-    }
-
-    function renderStrips() {
+    function renderGrid() {
       const filtrados = filtrar();
-      document.getElementById('contador').textContent =
-        `${filtrados.length} descuento${filtrados.length !== 1 ? 's' : ''}`;
-      stripData = filtrados;
-      document.getElementById('lista').innerHTML = filtrados.length
-        ? filtrados.map((d, i) => stripHTML(d, i)).join('')
-        : '<p style="color:#475569;text-align:center;padding:4rem 0;font-size:.9rem">Sin resultados para los filtros seleccionados</p>';
+      rowData = filtrados;
+      const grid = document.getElementById('grid');
+      const empty = document.getElementById('empty');
+      const contador = document.getElementById('contador');
+      contador.textContent = `${filtrados.length} descuento${filtrados.length !== 1 ? 's' : ''}`;
+
+      if (!filtrados.length) {
+        grid.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+
+      const esDia = d => d.supermercado === 'Día' || d.supermercado === 'Dia';
+      grid.innerHTML = filtrados.map((d, i) => {
+        const cls = discountClass(d.descuento);
+        const label = badgeLabel(d.descuento);
+        const dias = diasLabel(d.dia);
+        const donde = esDia(d) ? canalLabel(d.canal) : (d.tipo_mercado || '').replace(/Carrefour /g, '').replace('Carrefour','Hiper') || 'Hiper';
+        const superBadge = d.supermercado || '';
+        return `
+          <div class="card" onclick="abrirModal(${i})" style="animation-delay:${Math.min(i * 20, 200)}ms">
+            <div class="card-header">
+              <span class="card-discount ${cls}">${label}</span>
+              <span class="card-super-badge">${superBadge}</span>
+            </div>
+            <div class="card-body">
+              <div class="card-bank">${d.banco || 'Sin datos'}</div>
+              <div class="card-meta">${d.metodo_pago || ''}</div>
+            </div>
+            <div class="card-footer">
+              <span class="card-days">${dias}</span>
+              <span class="card-where">${donde}</span>
+            </div>
+          </div>`;
+      }).join('');
     }
 
-    // ── Drawer ───────────────────────────────────────────────────────────────
-    function setT(id, val) { document.getElementById(id).textContent = val || ''; }
-    function showD(id, c) { document.getElementById(id).style.display = c ? 'block' : 'none'; }
-    function showDGrid(id, c) { document.getElementById(id).style.display = c ? 'block' : 'none'; }
+    // ── Modal ──────────────────────────────────────────────────────────────
+    function abrirModal(idx) {
+      const d = rowData[idx];
+      const cls = discountClass(d.descuento);
+      const el = document.getElementById('modal-discount-big');
+      el.textContent = badgeLabel(d.descuento);
+      el.className = `modal-discount-big ${cls}`;
+      document.getElementById('modal-bank').textContent = d.banco || 'Sin datos';
+      document.getElementById('modal-method').textContent = d.metodo_pago || '';
 
-    function abrirDrawer(idx) {
-      const d = stripData[idx];
-      const { text } = pctClasses(d.descuento);
-      const descEl = document.getElementById('drawer-descuento');
-      descEl.textContent = d.descuento || '?';
-      descEl.className = text;
-      setT('drawer-banco', d.banco || 'Sin datos');
-      setT('drawer-metodo', d.metodo_pago || '');
-      const promo = d.promocion || '';
-      setT('drawer-promocion', promo); showD('drawer-promocion-wrap', !!promo);
-      const dia = d.dia && d.dia !== 'Sin datos' ? d.dia.replace(/\//g, ' / ') : '';
-      setT('drawer-dia', dia === 'Todos los dias' ? 'Todos los días' : dia);
-      showDGrid('drawer-dia-wrap', !!dia);
-      const esDiaCard = d.supermercado === 'Día' || d.supermercado === 'Dia';
-      const formato = esDiaCard
-        ? (d.canal && d.canal !== 'Sin datos' ? d.canal : 'Supermercados Día')
-        : (d.tipo_mercado && d.tipo_mercado !== 'Sin datos'
-            ? d.tipo_mercado.split('/').map(s => s.trim().replace('Carrefour ', '')).join(', ')
-            : 'Carrefour');
-      setT('drawer-formato', formato); showDGrid('drawer-formato-wrap', true);
+      const promo = (d.promocion || '').replace(/(\d+)\s*csi\b/gi, '$1 cuotas sin interés');
+      const promoWrap = document.getElementById('modal-promo-wrap');
+      document.getElementById('modal-promo').textContent = promo;
+      promoWrap.style.display = promo ? 'block' : 'none';
+
+      const _dias = diasNorm(d.dia);
+      const diaText = _dias.length >= 7 ? 'Todos los días' : _dias.join(' / ');
+      const diaWrap = document.getElementById('modal-dia-wrap');
+      document.getElementById('modal-dia').textContent = diaText;
+      diaWrap.style.display = diaText ? '' : 'none';
+
+      const esDia = d.supermercado === 'Día' || d.supermercado === 'Dia';
+      const donde = esDia ? canalLabel(d.canal) : (d.tipo_mercado && d.tipo_mercado !== 'Sin datos' ? d.tipo_mercado.replace(/Carrefour /g,'').replace('Carrefour','Hiper') : 'Carrefour');
+      document.getElementById('modal-donde').textContent = donde;
+
       const tope = d.tope && d.tope !== 'Sin tope' ? d.tope : '';
-      setT('drawer-tope', tope); showDGrid('drawer-tope-wrap', !!tope);
+      const topeWrap = document.getElementById('modal-tope-wrap');
+      document.getElementById('modal-tope').textContent = tope;
+      topeWrap.style.display = tope ? '' : 'none';
+
       const vig = d.vigencia && d.vigencia !== 'Sin datos' ? d.vigencia : '';
-      setT('drawer-vigencia', vig); showDGrid('drawer-vigencia-wrap', !!vig);
-      document.getElementById('drawer-overlay').style.display = 'block';
-      document.getElementById('drawer').classList.add('open');
+      const vigWrap = document.getElementById('modal-vig-wrap');
+      document.getElementById('modal-vig').textContent = vig;
+      vigWrap.style.display = vig ? '' : 'none';
+
+      document.getElementById('modal-overlay').classList.add('open');
       document.body.style.overflow = 'hidden';
     }
 
-    function cerrarDrawer() {
-      document.getElementById('drawer-overlay').style.display = 'none';
-      document.getElementById('drawer').classList.remove('open');
+    function cerrarModal() {
+      document.getElementById('modal-overlay').classList.remove('open');
       document.body.style.overflow = '';
     }
 
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarDrawer(); });
+    function handleOverlayClick(e) {
+      if (e.target === document.getElementById('modal-overlay')) cerrarModal();
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal(); });
     document.addEventListener('DOMContentLoaded', cargar);
-
-    (function(){
-      const cur = window.location.pathname;
-      const map = {'/v1':'sw-v1','/v2':'sw-v2','/v3':'sw-v3','/':'sw-v1'};
-      const id = map[cur]; if(id){const el=document.getElementById(id);el.style.background='#4f46e5';el.style.color='#fff';}
-    })();
   </script>
-
 </body>
 </html>
